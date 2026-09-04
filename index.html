@@ -1,0 +1,2089 @@
+<html style="margin:0;padding:0;">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+(function(){
+  var s=document.createElement('style');
+  s.textContent=`
+    :root{
+      --bg:#000000;
+      --card:#111111;
+      --text:#FFFFFF;
+      --muted:#999999;
+      --accent:#C8C8C8;
+      --accent-soft:rgba(200,200,200,.14);
+      --accent2:#888888;
+      --accent2-soft:rgba(136,136,136,.14);
+      --border:rgba(200,200,200,.18);
+      --chrome1:#ffffff;
+      --chrome2:#e8e8e8;
+      --chrome3:#c0c0c0;
+      --chrome4:#909090;
+      --chrome5:#606060;
+      --success:#2ecc71;
+      --error:#e74c3c;
+      --danger:#c0392b;
+    }
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+    html{
+      -webkit-text-size-adjust:100%;
+      -ms-text-size-adjust:100%;
+    }
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font-family:'Syne',sans-serif;
+      line-height:1.6;
+      overflow-x:hidden;
+      -webkit-overflow-scrolling:touch;
+    }
+    button, input, textarea, select{
+      font-family:inherit;
+      -webkit-appearance:none;
+      -moz-appearance:none;
+      appearance:none;
+    }
+    button{
+      min-height:44px;
+      touch-action:manipulation;
+    }
+    input, textarea, select{
+      min-height:44px;
+      font-size:16px;
+    }
+
+    /* ===== SYNC STATUS ===== */
+    .sync-status{
+      position:fixed;
+      bottom:16px;
+      right:16px;
+      padding:8px 14px;
+      background:rgba(0,0,0,0.9);
+      border:1px solid var(--border);
+      border-radius:4px;
+      font-size:0.75rem;
+      letter-spacing:0.5px;
+      z-index:500;
+      display:none;
+      pointer-events:none;
+    }
+    .sync-status.show{display:block;}
+    .sync-status.syncing{border-color:#f39c12;color:#f39c12;}
+    .sync-status.synced{border-color:var(--success);color:var(--success);}
+    .sync-status.offline{border-color:var(--error);color:var(--error);}
+
+    /* ===== 3D CHROME LOGO ===== */
+    .logo-3d-container{
+      perspective:1000px;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      padding:2rem 0 0.5rem;
+      background:radial-gradient(ellipse at center,#1a1a1a 0%,#000 70%);
+      overflow:hidden;
+    }
+    .logo-3d{
+      font-size:clamp(2.5rem,12vw,6rem);
+      font-weight:800;
+      letter-spacing:8px;
+      text-transform:uppercase;
+      transform-style:preserve-3d;
+      background:linear-gradient(120deg,var(--chrome1) 0%,var(--chrome2) 15%,var(--chrome3) 30%,var(--chrome1) 40%,var(--chrome2) 50%,var(--chrome4) 65%,var(--chrome1) 80%,var(--chrome3) 100%);
+      background-size:200% 100%;
+      -webkit-background-clip:text;
+      background-clip:text;
+      color:transparent;
+      filter:drop-shadow(0 0 6px rgba(255,255,255,0.5)) drop-shadow(0 0 15px rgba(200,200,200,0.3));
+      -webkit-text-stroke:1px rgba(200,200,200,0.3);
+      animation:rotateLogo 8s linear infinite,shineMove 3s ease-in-out infinite alternate;
+    }
+    @keyframes rotateLogo{0%{transform:rotateY(0deg) rotateX(8deg);}100%{transform:rotateY(360deg) rotateX(8deg);}}
+    @keyframes shineMove{0%{background-position:0% 50%;}100%{background-position:200% 50%;}}
+
+    /* ===== ADMIN EDIT STYLES ===== */
+    .admin-mode [data-editable]{
+      outline:1px dashed rgba(200,200,200,0.3);
+      outline-offset:3px;
+      cursor:text;
+      transition:outline-color .15s, background .15s;
+    }
+    .admin-mode [data-editable]:hover{
+      outline-color:var(--accent);
+      background:rgba(255,255,255,0.02);
+    }
+    [contenteditable="true"]:focus{
+      outline:2px solid var(--accent)!important;
+      background:rgba(255,255,255,0.05)!important;
+    }
+    [contenteditable="true"]{min-height:1.5em;}
+    .admin-mode [data-editable].saving{outline-color:#f39c12!important;background:rgba(243,156,18,0.05)!important;}
+    .admin-mode [data-editable].saved-flash{animation:saveFlash .6s ease-out;}
+    @keyframes saveFlash{0%{background:rgba(46,204,113,0.15);}100%{background:transparent;}}
+
+    /* ===== EASY PHOTO UPLOAD ===== */
+    .photo-upload-wrap{
+      position:relative;
+    }
+    .photo-upload-btn{
+      position:absolute;
+      top:0.5rem;
+      left:0.5rem;
+      z-index:10;
+      display:none;
+      background:rgba(0,0,0,0.85);
+      border:1px solid var(--accent);
+      color:#fff;
+      padding:0.5rem 0.8rem;
+      font-size:0.75rem;
+      cursor:pointer;
+      font-family:inherit;
+      border-radius:4px;
+      text-transform:uppercase;
+      letter-spacing:0.5px;
+      transition:all .15s;
+      min-height:36px;
+    }
+    .photo-upload-btn:hover{
+      background:var(--accent);
+      color:var(--bg);
+    }
+    .photo-upload-btn input[type="file"]{
+      display:none;
+    }
+    .admin-mode .photo-upload-btn{
+      display:inline-block;
+    }
+    .photo-upload-btn.uploading{
+      background:#f39c12;
+      border-color:#f39c12;
+      pointer-events:none;
+    }
+
+    /* ===== VIDEO UPLOAD ===== */
+    .video-upload-btn{
+      position:absolute;
+      top:0.5rem;
+      right:0.5rem;
+      z-index:10;
+      display:none;
+      background:rgba(0,0,0,0.85);
+      border:1px solid var(--accent);
+      color:#fff;
+      padding:0.5rem 0.8rem;
+      font-size:0.75rem;
+      cursor:pointer;
+      font-family:inherit;
+      border-radius:4px;
+      text-transform:uppercase;
+      letter-spacing:0.5px;
+      transition:all .15s;
+      min-height:36px;
+    }
+    .video-upload-btn:hover{
+      background:var(--accent);
+      color:var(--bg);
+    }
+    .video-upload-btn input[type="file"]{
+      display:none;
+    }
+    .admin-mode .video-upload-btn{
+      display:inline-block;
+    }
+    .video-upload-btn.uploading{
+      background:#f39c12;
+      border-color:#f39c12;
+      pointer-events:none;
+    }
+    .video-upload-progress{
+      position:absolute;
+      bottom:0;
+      left:0;
+      right:0;
+      height:4px;
+      background:rgba(0,0,0,0.5);
+      z-index:11;
+      display:none;
+    }
+    .video-upload-progress.show{display:block;}
+    .video-upload-progress-bar{
+      height:100%;
+      background:#f39c12;
+      width:0%;
+      transition:width 0.3s;
+    }
+
+    /* ===== HEADER ===== */
+    .site-header{
+      position:sticky;
+      top:0;
+      background:rgba(0,0,0,0.95);
+      border-bottom:1px solid var(--border);
+      padding:1rem 4%;
+      z-index:100;
+      backdrop-filter:blur(10px);
+      -webkit-backdrop-filter:blur(10px);
+    }
+    .header-inner{
+      max-width:1400px;
+      margin:0 auto;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      flex-wrap:wrap;
+      gap:0.75rem;
+    }
+    .brand-logo{
+      font-size:clamp(1.2rem,4vw,1.8rem);
+      font-weight:800;
+      letter-spacing:2px;
+      background:linear-gradient(135deg,#D0D0D0,#888888);
+      -webkit-background-clip:text;
+      background-clip:text;
+      color:transparent;
+      text-decoration:none;
+      white-space:nowrap;
+    }
+    .site-nav{
+      display:flex;
+      align-items:center;
+      gap:1rem;
+      flex-wrap:wrap;
+    }
+    .site-nav a{
+      color:var(--accent);
+      text-decoration:none;
+      font-size:0.8rem;
+      letter-spacing:0.8px;
+      text-transform:uppercase;
+      transition:color .2s;
+      padding:0.5rem 0;
+      min-height:44px;
+      display:flex;
+      align-items:center;
+    }
+    .site-nav a:hover{color:var(--text);}
+    .admin-trigger{
+      color:var(--accent);
+      cursor:pointer;
+      font-size:0.8rem;
+      text-transform:uppercase;
+      letter-spacing:0.8px;
+      transition:color .2s;
+      padding:0.5rem 0;
+      min-height:44px;
+      display:flex;
+      align-items:center;
+    }
+    .admin-trigger:hover{color:var(--text);}
+    .admin-dot{
+      color:var(--success);
+      font-size:0.8rem;
+      margin-left:0.4rem;
+      display:none;
+    }
+    .logged-in .admin-dot{display:inline;}
+    .cloud-indicator{
+      display:inline-block;
+      width:8px;
+      height:8px;
+      border-radius:50%;
+      background:var(--muted);
+      margin-right:5px;
+      vertical-align:middle;
+    }
+    .cloud-indicator.connected{background:var(--success);}
+    .cloud-indicator.disconnected{background:var(--error);}
+
+    /* ===== HERO ===== */
+    .hero-section{
+      text-align:center;
+      padding:1.5rem 5% 2rem;
+      max-width:800px;
+      margin:0 auto;
+    }
+    .hero-title{
+      font-size:clamp(1.3rem,5vw,2.5rem);
+      letter-spacing:4px;
+      text-transform:uppercase;
+      margin-bottom:0.75rem;
+      font-weight:700;
+      line-height:1.3;
+    }
+    .hero-desc{
+      color:var(--accent);
+      font-size:clamp(0.9rem,2.5vw,1.05rem);
+      max-width:600px;
+      margin:0 auto;
+      line-height:1.7;
+    }
+
+    /* ===== TABS ===== */
+    .tabs-bar{
+      display:flex;
+      justify-content:flex-start;
+      gap:0;
+      margin-bottom:2rem;
+      border-bottom:1px solid var(--border);
+      padding:0 4%;
+      flex-wrap:nowrap;
+      overflow-x:auto;
+      overflow-y:hidden;
+      -webkit-overflow-scrolling:touch;
+      scrollbar-width:none;
+      -ms-overflow-style:none;
+    }
+    .tabs-bar::-webkit-scrollbar{
+      display:none;
+    }
+    .tab-btn{
+      padding:0.9rem 1.1rem;
+      color:var(--accent);
+      text-transform:uppercase;
+      letter-spacing:0.8px;
+      font-size:0.78rem;
+      cursor:pointer;
+      border-bottom:2px solid transparent;
+      transition:all .2s;
+      background:none;
+      border-top:none;
+      border-left:none;
+      border-right:none;
+      font-family:inherit;
+      white-space:nowrap;
+      flex-shrink:0;
+      min-height:44px;
+    }
+    .tab-btn:hover,.tab-btn.active{
+      color:var(--text);
+      border-bottom-color:var(--accent);
+    }
+
+    /* ===== PRODUCTS ===== */
+    .products-container{
+      max-width:1400px;
+      margin:0 auto;
+      padding:0 4% 4rem;
+    }
+    .products-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
+      gap:2.5rem 1.25rem;
+    }
+    .product-card{
+      display:flex;
+      flex-direction:column;
+      cursor:pointer;
+      transition:opacity .2s, transform .2s;
+    }
+    .product-card:hover{
+      opacity:0.85;
+      transform:translateY(-3px);
+    }
+    .product-img-wrap{
+      position:relative;
+      margin-bottom:0.85rem;
+    }
+    .product-img{
+      width:100%;
+      aspect-ratio:3/4;
+      background:var(--card);
+      border:1px solid var(--border);
+      object-fit:cover;
+      border-radius:4px;
+      display:block;
+    }
+    .product-name{
+      font-size:0.88rem;
+      text-transform:uppercase;
+      letter-spacing:0.3px;
+      margin-bottom:0.3rem;
+      color:var(--text);
+      font-weight:600;
+      line-height:1.35;
+    }
+    .product-desc{
+      font-size:0.8rem;
+      color:var(--muted);
+      margin-bottom:0.5rem;
+      flex-grow:1;
+      line-height:1.4;
+    }
+    .product-price{
+      font-size:0.98rem;
+      font-weight:600;
+      color:var(--accent);
+    }
+    .add-btn{
+      margin-top:0.7rem;
+      padding:0.75rem 1rem;
+      background:transparent;
+      border:1px solid var(--accent);
+      color:var(--accent);
+      text-transform:uppercase;
+      letter-spacing:0.8px;
+      cursor:pointer;
+      transition:all .2s;
+      font-size:0.8rem;
+      font-family:inherit;
+      font-weight:600;
+      border-radius:3px;
+      min-height:44px;
+    }
+    .add-btn:hover{
+      background:var(--accent);
+      color:var(--bg);
+    }
+    .add-btn:active{
+      transform:scale(0.98);
+    }
+
+    /* ===== SHOWROOM ===== */
+    .showroom-section{
+      max-width:1400px;
+      margin:0 auto;
+      padding:2.5rem 4%;
+      border-top:1px solid var(--border);
+    }
+    .section-title{
+      text-align:center;
+      font-size:clamp(1.1rem,3.5vw,1.4rem);
+      text-transform:uppercase;
+      letter-spacing:2.5px;
+      margin-bottom:1.5rem;
+      color:var(--accent);
+      font-weight:700;
+    }
+    .video-wrapper{
+      width:100%;
+      aspect-ratio:16/9;
+      background:var(--card);
+      border:1px solid var(--border);
+      margin-bottom:2rem;
+      position:relative;
+      border-radius:4px;
+      overflow:hidden;
+    }
+    .video-wrapper video{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+    }
+    .video-placeholder{
+      position:absolute;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:linear-gradient(135deg,rgba(30,30,30,0.9),rgba(10,10,10,0.95));
+      color:var(--muted);
+      font-size:0.85rem;
+      letter-spacing:1px;
+      text-transform:uppercase;
+      pointer-events:none;
+      padding:1rem;
+      text-align:center;
+    }
+    .video-placeholder.hidden{display:none;}
+    .photo-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+      gap:0.85rem;
+    }
+    .photo-card{
+      aspect-ratio:1/1;
+      border:1px solid var(--border);
+      overflow:hidden;
+      position:relative;
+      border-radius:4px;
+    }
+    .photo-card img{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+    }
+    .edit-media-btn{
+      position:absolute;
+      margin:0.5rem;
+      right:0;
+      bottom:0;
+      background:rgba(0,0,0,0.85);
+      border:1px solid var(--accent);
+      color:#fff;
+      padding:0.4rem 0.7rem;
+      font-size:0.75rem;
+      cursor:pointer;
+      display:none;
+      font-family:inherit;
+      border-radius:3px;
+      min-height:36px;
+    }
+    .admin-mode .edit-media-btn{display:block;}
+
+    /* ===== CART & CHECKOUT ===== */
+    .cart-section{
+      max-width:700px;
+      margin:0 auto 4rem;
+      padding:1.5rem;
+      border:1px solid var(--border);
+      border-radius:4px;
+      background:rgba(17,17,17,0.5);
+    }
+    .cart-section h2{
+      text-transform:uppercase;
+      letter-spacing:2px;
+      margin-bottom:1.2rem;
+      font-size:clamp(1rem,3vw,1.2rem);
+      font-weight:700;
+    }
+    .cart-item{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      padding:0.85rem 0;
+      border-bottom:1px solid var(--border);
+      flex-wrap:wrap;
+      gap:0.75rem;
+    }
+    .cart-item > div:first-child{
+      flex:1;
+      min-width:180px;
+      font-size:0.9rem;
+    }
+    .qty-controls{
+      display:flex;
+      gap:0.5rem;
+      align-items:center;
+    }
+    .qty-btn{
+      width:38px;
+      height:38px;
+      background:var(--border);
+      color:var(--text);
+      border:none;
+      cursor:pointer;
+      font-size:1.1rem;
+      font-weight:bold;
+      border-radius:3px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      transition:background .15s;
+    }
+    .qty-btn:hover{background:var(--accent);color:var(--bg);}
+    .qty-btn:active{transform:scale(0.95);}
+    .totals{
+      margin-top:1.2rem;
+      text-align:right;
+      font-size:1rem;
+    }
+    .totals strong{font-size:1.15rem;}
+    .checkout-form{
+      margin-top:1.5rem;
+      display:grid;
+      gap:0.85rem;
+    }
+    .checkout-form h3{
+      margin:1.2rem 0 0.4rem;
+      text-transform:uppercase;
+      font-size:0.95rem;
+      font-weight:700;
+    }
+    .form-input{
+      padding:0.85rem 1rem;
+      background:var(--card);
+      border:1px solid var(--border);
+      color:var(--text);
+      font-size:1rem;
+      border-radius:3px;
+      font-family:inherit;
+      width:100%;
+      min-height:48px;
+    }
+    .form-input:focus{
+      outline:none;
+      border-color:var(--accent);
+    }
+    textarea.form-input{
+      min-height:100px;
+      resize:vertical;
+    }
+    .gcash-box{
+      background:rgba(46,204,113,0.05);
+      border:1px solid var(--success);
+      padding:1.1rem;
+      text-align:center;
+      margin:1.2rem 0;
+      border-radius:4px;
+    }
+    .gcash-box strong{
+      color:var(--success);
+      font-size:1.2rem;
+      display:block;
+      margin:0.4rem 0;
+    }
+    .submit-order-btn{
+      padding:1rem;
+      background:linear-gradient(135deg,#D0D0D0,#888888);
+      color:var(--bg);
+      border:none;
+      font-weight:700;
+      text-transform:uppercase;
+      letter-spacing:1.5px;
+      cursor:pointer;
+      font-size:0.95rem;
+      margin-top:0.5rem;
+      border-radius:3px;
+      font-family:inherit;
+      transition:opacity .2s, transform .1s;
+      min-height:52px;
+    }
+    .submit-order-btn:hover{opacity:0.88;}
+    .submit-order-btn:active{transform:scale(0.99);opacity:0.95;}
+
+    /* ===== ADMIN PANEL ===== */
+    .admin-panel{
+      position:absolute;
+      top:0;
+      right:-420px;
+      width:400px;
+      max-width:100%;
+      min-height:100%;
+      background:#0a0a0a;
+      border-left:1px solid var(--border);
+      padding:1.25rem;
+      overflow-y:auto;
+      transition:right .3s ease;
+      z-index:200;
+    }
+    .admin-panel.open{right:0;}
+    .admin-panel h3{
+      text-transform:uppercase;
+      letter-spacing:2px;
+      margin-bottom:1rem;
+      font-size:1rem;
+      font-weight:700;
+    }
+    .admin-input{
+      width:100%;
+      padding:0.75rem;
+      margin-bottom:0.6rem;
+      background:var(--card);
+      border:1px solid var(--border);
+      color:var(--text);
+      font-size:0.95rem;
+      border-radius:3px;
+      font-family:inherit;
+      min-height:44px;
+    }
+    .admin-btn{
+      width:100%;
+      padding:0.85rem;
+      margin-bottom:0.6rem;
+      background:linear-gradient(135deg,#D0D0D0,#888888);
+      color:var(--bg);
+      font-weight:700;
+      border:none;
+      cursor:pointer;
+      border-radius:3px;
+      font-family:inherit;
+      font-size:0.9rem;
+      transition:opacity .2s;
+      min-height:48px;
+    }
+    .admin-btn:hover{opacity:0.88;}
+    .admin-btn:active{opacity:0.95;}
+    .btn-secondary{
+      background:var(--card)!important;
+      color:var(--text)!important;
+      border:1px solid var(--border)!important;
+    }
+    .btn-danger{
+      background:var(--danger)!important;
+      color:#fff!important;
+    }
+    .order-card{
+      border:1px solid var(--border);
+      padding:0.9rem;
+      margin-bottom:0.7rem;
+      font-size:0.85rem;
+      border-radius:3px;
+    }
+    .order-status{
+      display:inline-block;
+      padding:0.2rem 0.5rem;
+      font-size:0.7rem;
+      text-transform:uppercase;
+      margin-left:0.4rem;
+      border-radius:2px;
+      font-weight:700;
+    }
+    .status-pending{background:#f39c12;color:#000;}
+    .status-paid{background:var(--success);color:#fff;}
+    .order-actions{
+      display:flex;
+      gap:0.5rem;
+      margin-top:0.6rem;
+      flex-wrap:wrap;
+    }
+    .order-actions button{
+      padding:0.5rem 0.8rem;
+      font-size:0.82rem;
+      border:none;
+      border-radius:3px;
+      cursor:pointer;
+      font-family:inherit;
+      min-height:38px;
+    }
+    .delete-btn{background:var(--danger);color:#fff;}
+    .delete-btn:hover{background:#a93226;}
+    .paid-btn{background:var(--success);color:#fff;}
+    .paid-btn:hover{background:#27ae60;}
+    .close-panel-btn{
+      position:absolute;
+      top:0.8rem;
+      right:0.8rem;
+      background:transparent!important;
+      border:none!important;
+      color:#fff!important;
+      font-size:1.4rem;
+      cursor:pointer;
+      padding:0.3rem 0.6rem!important;
+      width:auto!important;
+      min-height:36px;
+    }
+    .hidden{display:none!important;}
+
+    /* ===== MODAL ===== */
+    .modal-overlay{
+      display:none;
+      position:absolute;
+      inset:0;
+      background:rgba(0,0,0,0.92);
+      z-index:300;
+      align-items:flex-start;
+      justify-content:center;
+      padding:1rem;
+      padding-top:4rem;
+      min-height:100vh;
+    }
+    .modal-overlay.show{display:flex;}
+    .modal-content{
+      background:var(--card);
+      border:1px solid var(--border);
+      padding:2rem 1.5rem;
+      width:100%;
+      max-width:400px;
+      border-radius:4px;
+    }
+    .modal-content h3{
+      text-align:center;
+      margin-bottom:1.2rem;
+      text-transform:uppercase;
+      letter-spacing:2px;
+      font-weight:700;
+      font-size:1.1rem;
+    }
+    .modal-error{
+      color:var(--error);
+      text-align:center;
+      margin-bottom:0.8rem;
+      font-size:0.88rem;
+      min-height:1.2rem;
+    }
+
+    /* ===== FOOTER ===== */
+    .site-footer{
+      text-align:center;
+      padding:2.5rem 5%;
+      border-top:1px solid var(--border);
+      color:var(--muted);
+      font-size:0.85rem;
+    }
+    .site-footer a{
+      color:var(--accent);
+      text-decoration:none;
+    }
+    .site-footer a:hover{color:var(--text);}
+
+    /* ===== TABLET (769px - 1024px) ===== */
+    @media(max-width:1024px){
+      .products-grid{
+        grid-template-columns:repeat(3,1fr);
+        gap:2rem 1rem;
+      }
+      .photo-grid{
+        grid-template-columns:repeat(3,1fr);
+      }
+    }
+
+    /* ===== MOBILE (≤768px) ===== */
+    @media(max-width:768px){
+      .site-header{padding:0.85rem 4%;}
+      .header-inner{justify-content:center;flex-direction:column;gap:0.5rem;}
+      .site-nav{gap:0.75rem;justify-content:center;width:100%;}
+      .site-nav a{font-size:0.75rem;padding:0.4rem 0.3rem;min-height:36px;}
+      .admin-trigger{font-size:0.75rem;padding:0.4rem 0.3rem;min-height:36px;}
+      .logo-3d-container{padding:1.5rem 0 0.3rem;}
+      .logo-3d{letter-spacing:5px;}
+      .hero-section{padding:1rem 4% 1.5rem;}
+      .hero-title{letter-spacing:3px;}
+      .products-grid{grid-template-columns:repeat(2,1fr);gap:1.75rem 0.85rem;}
+      .product-name{font-size:0.8rem;letter-spacing:0;}
+      .product-desc{font-size:0.75rem;}
+      .product-price{font-size:0.9rem;}
+      .add-btn{font-size:0.72rem;padding:0.65rem 0.5rem;letter-spacing:0.5px;min-height:40px;}
+      .showroom-section{padding:2rem 4%;}
+      .photo-grid{grid-template-columns:repeat(2,1fr);gap:0.6rem;}
+      .cart-section{padding:1.2rem;margin:0 4% 3rem;}
+      .cart-item{flex-direction:column;align-items:flex-start;gap:0.5rem;}
+      .cart-item > div:first-child{width:100%;}
+      .qty-controls{align-self:flex-end;}
+      .totals{font-size:0.95rem;}
+      .admin-panel{width:100%;right:-100%;}
+      .sync-status{bottom:10px;right:10px;left:10px;text-align:center;font-size:0.7rem;}
+    }
+
+    /* ===== SMALL MOBILE (≤480px) ===== */
+    @media(max-width:480px){
+      .products-grid{grid-template-columns:repeat(2,1fr);gap:1.5rem 0.65rem;}
+      .product-name{font-size:0.75rem;line-height:1.3;}
+      .product-desc{display:none;}
+      .product-price{font-size:0.85rem;margin-top:0.2rem;}
+      .add-btn{font-size:0.68rem;padding:0.6rem 0.4rem;margin-top:0.5rem;}
+      .photo-grid{grid-template-columns:repeat(2,1fr);}
+      .tabs-bar{padding:0 3%;}
+      .tab-btn{padding:0.8rem 0.9rem;font-size:0.72rem;}
+      .form-input{font-size:16px;min-height:46px;}
+      .gcash-box strong{font-size:1.1rem;}
+    }
+
+    /* ===== LARGE DESKTOP (≥1200px) ===== */
+    @media(min-width:1200px){
+      .products-grid{grid-template-columns:repeat(4,1fr);}
+    }
+  `;
+  document.head.appendChild(s);
+})();
+</script>
+<div style="background-color:transparent;box-sizing:border-box;position:relative;">
+
+<!-- SYNC STATUS INDICATOR -->
+<div class="sync-status" id="syncStatus">● Connecting...</div>
+
+ <!-- HEADER -->
+<header class="site-header">
+  <div class="header-inner">
+    <a href="#" class="brand-logo" data-editable="true" data-key="site_logo">SCRM.HARDWEAR</a>
+    <nav class="site-nav" id="navArea">
+      <a href="#collections" data-editable="true" data-key="nav_shop">Shop</a>
+      <a href="#showroom" data-editable="true" data-key="nav_showroom">Showroom</a>
+      <a href="#cartSection" data-editable="true" data-key="nav_cart">Cart</a>
+      <span class="admin-trigger" id="adminTrigger" onclick="openLoginModal()">
+        <span class="cloud-indicator" id="cloudIndicator"></span>
+        Admin<span class="admin-dot">●</span>
+      </span>
+    </nav>
+  </div>
+</header>
+
+<!-- 3D CHROME LOGO -->
+<div class="logo-3d-container">
+  <div class="logo-3d">SCRM</div>
+</div>
+
+<!-- HERO -->
+<section class="hero-section">
+  <h1 class="hero-title" data-editable="true" data-key="hero_title">Year 9 Collection</h1>
+  <p class="hero-desc" data-editable="true" data-key="hero_desc">Shop the latest from the set. Every piece carries years of culture, passion and the people who built it with us.</p>
+</section>
+
+<!-- CATEGORY TABS -->
+<div class="tabs-bar">
+  <button class="tab-btn active" onclick="filterProducts('all',this)">View All</button>
+  <button class="tab-btn" onclick="filterProducts('tees',this)">T-Shirts</button>
+  <button class="tab-btn" onclick="filterProducts('hoodies',this)">Hoodies</button>
+  <button class="tab-btn" onclick="filterProducts('outerwear',this)">Outerwear</button>
+  <button class="tab-btn" onclick="filterProducts('bottoms',this)">Bottoms</button>
+  <button class="tab-btn" onclick="filterProducts('accessories',this)">Accessories</button>
+</div>
+
+<!-- PRODUCTS — 6 PER CATEGORY -->
+<section class="products-container" id="collections">
+  <div class="products-grid" id="productsGrid">
+
+    <!-- T-SHIRTS (6) -->
+    <div class="product-card" data-category="tees">
+      <div class="product-img-wrap photo-upload-wrap">
+        <label class="photo-upload-btn">📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadProductPhoto(this, 'p1_img')"></label>
+        <img src="https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=500&h=667&fit=crop" class="product-img" data-img-key="p1_img" alt="Hot Model Cropped Tee" loading="lazy" onerror="this.style.display='none'">
+      </div>
+      <h3 class="product-name" data-editable="true" data-key="p1_name">Hot Model Cropped Tee (Brown Dough)</h3>
+      <p class="product-desc" data-editable="true" data-key="p1_desc">Premium cropped fit tee</p>
+      <div class="product-price" data-editable="true" data-key="p1_price">₱750.00</div>
+      <button class="add-btn" onclick="addToCart(this)">Add to Cart</button>
+    </div>
+
+    <div class="product-card" data-category="tees">
+      <div class="product-img-wrap photo-upload-wrap">
+        <label class="photo-upload-btn">📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadProductPhoto(this, 'p2_img')"></label>
+        <img src="https://images.unsplash.com/photo-1503341504253-dff4815485f1?w=500&h=667&fit=crop" class="product-img" data-img-key="p2_img" alt="Reverse Stitch Tee" loading="lazy" onerror="this.style.display='none'">
+      </div>
+      <h3 class="product-name" data-editable="true" data-key="p2_name">100% Cropped Reverse Stitch Tee (Black)</h3>
+      <p class="product-desc" data-editable="true" data-key="p2_desc">Reverse stitch detail</p>
+      <div class="product-price" data-editable="true" data-key="p2_price">₱750.00</div>
+      <button class="add-btn" onclick="addToCart(this)">Add to Cart</button>
+    </div>
+
+    <div class="product-card" data-category="tees">
+      <div class="product-img-wrap photo-upload-wrap">
+        <label class="photo-upload-btn">📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadProductPhoto(this, 'p3_img')"></label>
+        <img src="https://images.unsplash.com/photo-1562157873-818bc0726f68?w=500&h=667&fit=crop" class="product-img" data-img-key="p3_img" alt="Vintage Radio Tee" loading="lazy" onerror="this.style.display='none'">
+      </div>
+      <h3 class="product-name" data-editable="true" data-key="p3_name">Vintage Radio Tee (Off White)</h3>
+      <p class="product-desc" data-editable="true" data-key="p3_desc">Retro graphic print</p>
+      <div class="product-price" data-editable="true" data-key="p3_price">₱750.00</div>
+      <button class="add-btn" onclick="addToCart(this)">Add to Cart</button>
+    </div>
+
+    <div class="product-card" data-category="tees">
+      <div class="product-img-wrap photo-upload-wrap">
+        <label class="photo-upload-btn">📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadProductPhoto(this, 'p4_img')"></label>
+        <img src="https://images.unsplash.com/photo-1576566588028-414b3ab2f09f?w=500&h=667&fit=crop" class="product-img" data-img-key="p4_img" alt="Bruce Cropped Tee" loading="lazy" onerror="this.style.display='none'">
+      </div>
+      <h3 class="product-name" data-editable="true" data-key="p4_name">Bruce Cropped Tee (Clay Rose)</h3>
+      <p class="product-desc" data-editable="true" data-key="p4_desc">Soft clay rose colorway</p>
+      <div class="product-price" data-editable="true" data-key="p4_price">₱750.00</div>
+      <button class="add-btn" onclick="addToCart(this)">Add to Cart</button>
+    </div>
+
+    <div class="product-card" data-category="tees">
+      <div class="product-img-wrap photo-upload-wrap">
+        <label class="photo-upload-btn">📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadProductPhoto(this, 'p5_img')"></label>
+        <img src="https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=500&h=667&fit=crop" class="product-img" data-img-key="p5_img" alt="Classic White Tee" loading="lazy" onerror="this.style.display='none'">
+      </div>
+      <h3 class="product-name" data-editable="true" data-key="p5_name">Essential Classic Tee (White)</h3>
+      <p class="product-desc" data-editable="true" data-key="p5_desc">Timeless everyday staple</p>
+      <div class="product-price" data-editable="true" data-key="p5_price">₱650.00</div>
+      <button class="add-btn" onclick="addToCart(this)">Add to Cart</button>
+    </div>
+
+    <div class="product-card" data-category="tees">
+      <div class="product-img-wrap photo-upload-wrap">
+        <label class="photo-upload-btn">📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadProductPhoto(this, 'p6_img')"></label>
+        <img src="https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=500&h=667&fit=crop" class="product-img" data-img-key="p6_img" alt="Oversized Graphic Tee" loading="lazy" onerror="this.style.display='none'">
+      </div>
+      <h3 class="product-name" data-editable="true" data-key="p6_name">Oversized Street Graphic Tee</h3>
+      <p class="product-desc" data-editable="true" data-key="p6_desc">Bold front print design</p>
+      <div class="product-price" data-editable="true" data-key="p6_price">₱850.00</div>
+      <button class="add-btn" onclick="addToCart(this)">Add to Cart</button>
+    </div>
+
+    <!-- HOODIES (6) -->
+    <div class="product-card" data-category="hoodies">
+      <div class="product-img-wrap photo-upload-wrap">
+        <label class="photo-upload-btn">📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadProductPhoto(this, 'h1_img')"></label>
+        <img src="https://images.unsplash.com/photo-1556821840-98247892692e?w=500&h=667&fit=crop" class="product-img" data-img-key="h1_img" alt="Zip Hoodie" loading="lazy" onerror="this.style.display='none'">
+      </div>
+      <h3 class="product-name" data-editable="true" data-key="h1_name">World's Finest Zip-up Hoodie (Black)</h3>
+      <p class="product-desc" data-editable="true" data-key="h1_desc">Heavyweight fleece</p>
+      <div class="product-price" data-editable="true" data-key="h1_price">₱2,600.00</div>
+      <button class="add-btn" onclick="addToCart(this)">Add to Cart</button>
+    </div>
+
+    <div class="product-card" data-category="hoodies">
+      <div class="product-img-wrap photo-upload-wrap">
+        <label class="photo-upload-btn">📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadProductPhoto(this, 'h2_img')"></label>
+        <img src="https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=500&h=667&fit=crop" class="product-img" data-img-key="h2_img" alt="Classic Logo Hoodie" loading="lazy" onerror="this.style.display='none'">
+      </div>
+      <h3 class="product-name" data-editable="true" data-key="h2_name">Classic Logo Pullover Hoodie</h3>
+      <p class="product-desc" data-editable="true" data-key="h2_desc">Embroidered chest logo</p>
+      <div class="product-price" data-editable="true" data-key="h2_price">₱2,200.00</div>
+      <button class="add-btn" onclick="addToCart(this)">Add to Cart</button>
+    </div>
+
+    <div class="product-card" data-category="hoodies">
+      <div class="product-img-wrap photo-upload-wrap">
+        <label class="photo-upload-btn">📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadProductPhoto(this, 'h3_img')"></label>
+        <img src="https://images.unsplash.com/photo-1578932750298-f61155d0b02e?w=500&h=667&fit=crop" class="product-img" data-img-key="h3_img" alt="Patchwork Hoodie" loading="lazy" onerror="this.style.display='none'">
+      </div>
+      <h3 class="product-name" data-editable="true" data-key="h3_name">Patchwork Distressed Hoodie</h3>
+      <p class="product-desc" data-editable="true" data-key="h3_desc">Rare mixed-color design</p>
+      <div class="product-price" data-editable="true" data-key="h3_price">₱2,800.00</div>
+      <button class="add-btn" onclick="addToCart(this)">Add to Cart</button>
+    </div>
+
+    <div class="product-card" data-category="hoodies">
+      <div class="product-img-wrap photo-upload-wrap">
+        <label class="photo-upload-btn">📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadProductPhoto(this, 'h4_img')"></label>
+        <img src="https://images.unsplash.com/photo-1639532805871-92b5f6a08185?w=500&h=667&fit=crop" class="product-img" data-img-key="h4_img" alt="Oversized Heavy Hoodie" loading="lazy" onerror="this.style.display='none'">
+      </div>
+      <h3 class="product-name" data-editable="true" data-key="h4_name">Oversized Heavyweight Hoodie (Charcoal)</h3>
+      <p class="product-desc" data-editable="true" data-key="h4_desc">Drop shoulder fit</p>
+      <div class="product-price" data-editable="true" data-key="h4_price">₱2,450.00</div>
+      <button class="add-btn" onclick="addToCart(this)">Add to Cart</button>
+    </div>
+
+    <div class="product-card" data-category="hoodies">
+      <div class="product-img-wrap photo-upload-wrap">
+        <label class="photo-upload-btn">📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadProductPhoto(this, 'h5_img')"></label>
+        <img src="https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=500&h=667&fit=crop" class="product-img" data-img-key="h5_img" alt="Graphic Back Print Hoodie" loading="lazy" onerror="this.style.display='none'">
+      </div>
+      <h3 class="product-name" data-editable="true" data-key="h5_name">Vintage Graphic Back Print Hoodie</h3>
+      <p class="product-desc" data-editable="true" data-key="h5_desc">Large artwork on back</p>
+      <div class="product-price" data-editable="true" data-key="h5_price">₱2,550.00</div>
+      <button class="add-btn" onclick="addToCart(this)">Add to Cart</button>
+    </div>
+
+    <div class="product-card" data-category="hoodies">
+      <div class="product-img-wrap photo-upload-wrap">
+        <label class="photo-upload-btn">📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadProductPhoto(this, 'h6_img')"></label>
+        <img src="https://images.unsplash.com/photo-1556906781-9a412961c28c?w=500&h=667&fit=crop" class="product-img" data-img-key="h6_img" alt="Cream Pullover Hoodie" loading="lazy" onerror="this.style.display='none'">
+      </div>
+      <h3 class="product-name" data-editable="true" data-key="h6_name">Essential Pullover Hoodie (Cream)</h3>
+      <p class="product-desc" data-editable="true" data-key="h6_desc">Soft neutral colorway</p>
+      <div class="product-price" data-editable="true" data-key="h6_price">₱2,300.00</div>
+      <button class="add-btn" onclick="addToCart(this)">Add to Cart</button>
+    </div>
+
+    <!-- OUTERWEAR (6) -->
+    <div class="product-card" data-category="outerwear">
+      <div class="product-img-wrap photo-upload-wrap">
+        <label class="photo-upload-btn">📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadProductPhoto(this, 'o1_img')"></label>
+        <img src="https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=500&h=667&fit=crop" class="product-img" data-img-key="o1_img" alt="Varsity Jacket" loading="lazy" onerror="this.style.display='none'">
+      </div>
+      <h3 class="product-name" data-editable="true" data-key="o1_name">Premium Varsity Jacket (Leather)</h3>
+      <p class="product-desc" data-editable="true" data-key="o1_desc">Genuine leather sleeves</p>
+      <div class="product-price" data-editable="true" data-key="o1_price">₱3,500.00</div>
+      <button class="add-btn" onclick="addToCart(this)">Add to Cart</button>
+    </div>
+
+    <div class="product-card" data-category="outerwear">
+      <div class="product-img-wrap photo-upload-wrap">
+        <label class="photo-upload-btn">📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadProductPhoto(this, 'o2_img')"></label>
+        <img src="https://images.unsplash.com/photo-1576995853123-5a10305d93c0?w=500&h=667&fit=crop" class="product-img" data-img-key="o2_img" alt="Oversized Denim Jacket" loading="lazy" onerror="this.style.display='none'">
+      </div>
+      <h3 class="product-name" data-editable="true" data-key="o2_name">Oversized Washed Denim Jacket</h3>
+      <p class="product-desc" data-editable="true" data-key="o2_desc">Vintage wash premium denim</p>
+      <div class="product-price" data-editable="true" data-key="o2_price">₱2,900.00</div>
+      <button class="add-btn" onclick="addToCart(this)">Add to Cart</button>
+    </div>
+
+    <div class="product-card" data-category="outerwear">
+      <div class="product-img-wrap photo-upload-wrap">
+        <label class="photo-upload-btn">📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadProductPhoto(this, 'o3_img')"></label>
+        <img src="https://images.unsplash.com/photo-1591369822096-ffd140ec948f?w=500&h=667&fit=crop" class="product-img" data-img-key="o3_img" alt="Retro Track Jacket" loading="lazy" onerror="this.style.display='none'">
+      </div>
+      <h3 class="product-name" data-editable="true" data-key="o3_name">Retro Striped Track Jacket</h3>
+      <p class="product-desc" data-editable="true" data-key="o3_desc">Side stripe detail</p>
+      <div class="product-price" data-editable="true" data-key="o3_price">₱2,400.00</div>
+      <button class="add-btn" onclick="addToCart(this)">Add to Cart</button>
+    </div>
+
+    <div class="product-card" data-category="outerwear">
+      <div class="product-img-wrap photo-upload-wrap">
+        <label class="photo-upload-btn">📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadProductPhoto(this, 'o4_img')"></label>
+        <img src="https://images.unsplash.com/photo-1544022613-e87ca11c9a40?w=500&h=667&fit=crop" class="product-img" data-img-key="o4_img" alt="Cargo Windbreaker" loading="lazy" onerror="this.style.display='none'">
+      </div>
+      <h3 class="product-name" data-editable="true" data-key="o4_name">Utility Cargo Windbreaker</h3>
+      <p class="product-desc" data-editable="true" data-key="o4_desc">Water-resistant nylon</p>
+      <div class="product-price" data-editable="true" data-key="o4_price">₱2,750.00</div>
+      <button class="add-btn" onclick="addToCart(this)">Add to Cart</button>
+    </div>
+
+    <div class="product-card" data-category="outerwear">
+      <div class="product-img-wrap photo-upload-wrap">
+        <label class="photo-upload-btn">📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadProductPhoto(this, 'o5_img')"></label>
+        <img src="https://images.unsplash.com/photo-1551028719-00167b16eac5?w=500&h=667&fit=crop" class="product-img" data-img-key="o5_img" alt="Faux Leather Biker Jacket" loading="lazy" onerror="this.style.display='none'">
+      </div>
+      <h3 class="product-name" data-editable="true" data-key="o5_name">Minimal Leather Biker Jacket</h3>
+      <p class="product-desc" data-editable="true" data-key="o5_desc">Smooth premium finish</p>
+      <div class="product-price" data-editable="true" data-key="o5_price">₱3,200.00</div>
+      <button class="add-btn" onclick="addToCart(this)">Add to Cart</button>
+    </div>
+
+    <div class="product-card" data-category="outerwear">
+      <div class="product-img-wrap photo-upload-wrap">
+        <label class="photo-upload-btn">📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadProductPhoto(this, 'o6_img')"></label>
+        <img src="https://images.unsplash.com/photo-1548126032-079a0fb0099d?w=500&h=667&fit=crop" class="product-img" data-img-key="o6_img" alt="Bomber Jacket" loading="lazy" onerror="this.style.display='none'">
+      </div>
+      <h3 class="product-name" data-editable="true" data-key="o6_name">Classic MA-1 Bomber Jacket</h3>
+      <p class="product-desc" data-editable="true" data-key="o6_desc">Military-inspired design</p>
+      <div class="product-price" data-editable="true" data-key="o6_price">₱3,000.00</div>
+      <button class="add-btn" onclick="addToCart(this)">Add to Cart</button>
+    </div>
+
+    <!-- BOTTOMS (6) -->
+    <div class="product-card" data-category="bottoms">
+      <div class="product-img-wrap photo-upload-wrap">
+        <label class="photo-upload-btn">📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadProductPhoto(this, 'b1_img')"></label>
+        <img src="https://images.unsplash.com/photo-1552902875-78b64c8e37cf?w=500&h=667&fit=crop" class="product-img" data-img-key="b1_img" alt="Year 9 Sweatpants" loading="lazy" onerror="this.style.display='none'">
+      </div>
+      <h3 class="product-name" data-editable="true" data-key="b1_name">Year 9 Sweatpants (Black)</h3>
+      <p class="product-desc" data-editable="true" data-key="b1_desc">Relaxed fit heavy fleece</p>
+      <div class="product-price" data-editable="true" data-key="b1_price">₱2,000.00</div>
+      <button class="add-btn" onclick="addToCart(this)">Add to Cart</button>
+    </div>
+
+    <div class="product-card" data-category="bottoms">
+      <div class="product-img-wrap photo-upload-wrap">
+        <label class="photo-upload-btn">📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadProductPhoto(this, 'b2_img')"></label>
+        <img src="https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=500&h=667&fit=crop" class="product-img" data-img-key="b2_img" alt="Cargo Pants" loading="lazy" onerror="this.style.display='none'">
+      </div>
+      <h3 class="product-name" data-editable="true" data-key="b2_name">Multi-Pocket Cargo Pants</h3>
+      <p class="product-desc" data-editable="true" data-key="b2_desc">Tactical utility design</p>
+      <div class="product-price" data-editable="true" data-key="b2_price">₱2,300.00</div>
+      <button class="add-btn" onclick="addToCart(this)">Add to Cart</button>
+    </div>
+
+    <div class="product-card" data-category="bottoms">
+      <div class="product-img-wrap photo-upload-wrap">
+        <label class="photo-upload-btn">📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadProductPhoto(this, 'b3_img')"></label>
+        <img src="https://images.unsplash.com/photo-1542272604-787c3835535d?w=500&h=667&fit=crop" class="product-img" data-img-key="b3_img" alt="Baggy Denim Jeans" loading="lazy" onerror="this.style.display='none'">
+      </div>
+      <h3 class="product-name" data-editable="true" data-key="b3_name">Baggy Washed Denim Jeans</h3>
+      <p class="product-desc" data-editable="true" data-key="b3_desc">Loose vintage fit</p>
+      <div class="product-price" data-editable="true" data-key="b3_price">₱2,450.00</div>
+      <button class="add-btn" onclick="addToCart(this)">Add to Cart</button>
+    </div>
+
+    <div class="product-card" data-category="bottoms">
+      <div class="product-img-wrap photo-upload-wrap">
+        <label class="photo-upload-btn">📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadProductPhoto(this, 'b4_img')"></label>
+        <img src="https://images.unsplash.com/photo-1552374196-1ab2a1c593e8?w=500&h=667&fit=crop" class="product-img" data-img-key="b4_img" alt="Side Stripe Track Pants" loading="lazy" onerror="this.style.display='none'">
+      </div>
+      <h3 class="product-name" data-editable="true" data-key="b4_name">Retro Side Stripe Track Pants</h3>
+      <p class="product-desc" data-editable="true" data-key="b4_desc">Slim tapered leg</p>
+      <div class="product-price" data-editable="true" data-key="b4_price">₱1,850.00</div>
+      <button class="add-btn" onclick="addToCart(this)">Add to Cart</button>
+    </div>
+
+    <div class="product-card" data-category="bottoms">
+      <div class="product-img-wrap photo-upload-wrap">
+        <label class="photo-upload-btn">📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadProductPhoto(this, 'b5_img')"></label>
+        <img src="https://images.unsplash.com/photo-1473966968600-fa801b869a1a?w=500&h=667&fit=crop" class="product-img" data-img-key="b5_img" alt="Carpenter Work Pants" loading="lazy" onerror="this.style.display='none'">
+      </div>
+      <h3 class="product-name" data-editable="true" data-key="b5_name">Carpenter Canvas Work Pants</h3>
+      <p class="product-desc" data-editable="true" data-key="b5_desc">Double knee reinforced</p>
+      <div class="product-price" data-editable="true" data-key="b5_price">₱2,600.00</div>
+      <button class="add-btn" onclick="addToCart(this)">Add to Cart</button>
+    </div>
+
+    <div class="product-card" data-category="bottoms">
+      <div class="product-img-wrap photo-upload-wrap">
+        <label class="photo-upload-btn">📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadProductPhoto(this, 'b6_img')"></label>
+        <img src="https://images.unsplash.com/photo-1604176354204-9268737828e4?w=500&h=667&fit=crop" class="product-img" data-img-key="b6_img" alt="Wide Leg Trousers" loading="lazy" onerror="this.style.display='none'">
+      </div>
+      <h3 class="product-name" data-editable="true" data-key="b6_name">Wide Leg Pleated Trousers</h3>
+      <p class="product-desc" data-editable="true" data-key="b6_desc">Elegant drape fit</p>
+      <div class="product-price" data-editable="true" data-key="b6_price">₱2,150.00</div>
+      <button class="add-btn" onclick="addToCart(this)">Add to Cart</button>
+    </div>
+
+    <!-- ACCESSORIES (6) -->
+    <div class="product-card" data-category="accessories">
+      <div class="product-img-wrap photo-upload-wrap">
+        <label class="photo-upload-btn">📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadProductPhoto(this, 'a1_img')"></label>
+        <img src="https://images.unsplash.com/photo-1590874103328-eac38a68c325?w=500&h=667&fit=crop" class="product-img" data-img-key="a1_img" alt="Legacy Leather Tote" loading="lazy" onerror="this.style.display='none'">
+      </div>
+      <h3 class="product-name" data-editable="true" data-key="a1_name">Legacy Leather Tote Bag (Tobacco)</h3>
+      <p class="product-desc" data-editable="true" data-key="a1_desc">Premium leather</p>
+      <div class="product-price" data-editable="true" data-key="a1_price">₱2,500.00</div>
+      <button class="add-btn" onclick="addToCart(this)">Add to Cart</button>
+    </div>
+
+    <div class="product-card" data-category="accessories">
+      <div class="product-img-wrap photo-upload-wrap">
+        <label class="photo-upload-btn">📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadProductPhoto(this, 'a2_img')"></label>
+        <img src="https://images.unsplash.com/photo-1588850561407-ed78c282e89b?w=500&h=667&fit=crop" class="product-img" data-img-key="a2_img" alt="Embroidered Cap" loading="lazy" onerror="this.style.display='none'">
+      </div>
+      <h3 class="product-name" data-editable="true" data-key="a2_name">SCRM Logo Cap (Black)</h3>
+      <p class="product-desc" data-editable="true" data-key="a2_desc">Embroidered front logo</p>
+      <div class="product-price" data-editable="true" data-key="a2_price">₱850.00</div>
+      <button class="add-btn" onclick="addToCart(this)">Add to Cart</button>
+    </div>
+
+    <div class="product-card" data-category="accessories">
+      <div class="product-img-wrap photo-upload-wrap">
+        <label class="photo-upload-btn">📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadProductPhoto(this, 'a3_img')"></label>
+        <img src="https://images.unsplash.com/photo-1606760227094-e21a29b43114?w=500&h=667&fit=crop" class="product-img" data-img-key="a3_img" alt="Canvas Crossbody Bag" loading="lazy" onerror="this.style.display='none'">
+      </div>
+      <h3 class="product-name" data-editable="true" data-key="a3_name">Canvas Crossbody Sling Bag</h3>
+      <p class="product-desc" data-editable="true" data-key="a3_desc">Durable everyday carry</p>
+      <div class="product-price" data-editable="true" data-key="a3_price">₱1,200.00</div>
+      <button class="add-btn" onclick="addToCart(this)">Add to Cart</button>
+    </div>
+
+    <div class="product-card" data-category="accessories">
+      <div class="product-img-wrap photo-upload-wrap">
+        <label class="photo-upload-btn">📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadProductPhoto(this, 'a4_img')"></label>
+        <img src="https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=500&h=667&fit=crop" class="product-img" data-img-key="a4_img" alt="Graphic Socks" loading="lazy" onerror="this.style.display='none'">
+      </div>
+      <h3 class="product-name" data-editable="true" data-key="a4_name">SCRM Crew Socks (3-Pack)</h3>
+      <p class="product-desc" data-editable="true" data-key="a4_desc">Premium cotton blend</p>
+      <div class="product-price" data-editable="true" data-key="a4_price">₱600.00</div>
+      <button class="add-btn" onclick="addToCart(this)">Add to Cart</button>
+    </div>
+
+    <div class="product-card" data-category="accessories">
+      <div class="product-img-wrap photo-upload-wrap">
+        <label class="photo-upload-btn">📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadProductPhoto(this, 'a5_img')"></label>
+        <img src="https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=500&h=667&fit=crop" class="product-img" data-img-key="a5_img" alt="Branded Scarf" loading="lazy" onerror="this.style.display='none'">
+      </div>
+      <h3 class="product-name" data-editable="true" data-key="a5_name">Knit Logo Scarf (Charcoal)</h3>
+      <p class="product-desc" data-editable="true" data-key="a5_desc">Warm acrylic knit</p>
+      <div class="product-price" data-editable="true" data-key="a5_price">₱950.00</div>
+      <button class="add-btn" onclick="addToCart(this)">Add to Cart</button>
+    </div>
+
+    <div class="product-card" data-category="accessories">
+      <div class="product-img-wrap photo-upload-wrap">
+        <label class="photo-upload-btn">📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadProductPhoto(this, 'a6_img')"></label>
+        <img src="https://images.unsplash.com/photo-1590874103328-eac38a68c325?w=500&h=667&fit=crop" class="product-img" data-img-key="a6_img" alt="Leather Card Wallet" loading="lazy" onerror="this.style.display='none'">
+      </div>
+      <h3 class="product-name" data-editable="true" data-key="a6_name">Slim Leather Card Wallet</h3>
+      <p class="product-desc" data-editable="true" data-key="a6_desc">Minimalist design</p>
+      <div class="product-price" data-editable="true" data-key="a6_price">₱1,100.00</div>
+      <button class="add-btn" onclick="addToCart(this)">Add to Cart</button>
+    </div>
+
+  </div>
+</section>
+
+<!-- SHOWROOM — NOW WITH VIDEO FILE UPLOAD! -->
+<section class="showroom-section" id="showroom">
+  <h2 class="section-title" data-editable="true" data-key="showroom_title">Video & Photo Showroom</h2>
+  <div class="video-wrapper">
+    <!-- VIDEO UPLOAD BUTTON (visible in admin mode) -->
+    <label class="video-upload-btn" id="videoUploadBtn">
+      🎬 Upload Video
+      <input type="file" accept="video/mp4,video/webm,video/quicktime,video/x-matroska" onchange="uploadShowroomVideo(this)">
+    </label>
+    <!-- Optional: URL button for those who prefer external links -->
+    <button class="edit-media-btn" onclick="changeMedia('video')">📎 Video URL</button>
+    
+    <video poster="https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&h=675&fit=crop" controls muted loop id="showroomVideo"></video>
+    <div class="video-placeholder" id="videoPlaceholder">Showroom Video — Upload via Admin</div>
+  </div>
+  <div class="photo-grid">
+    <div class="photo-card photo-upload-wrap">
+      <label class="photo-upload-btn">📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadShowroomPhoto(this, 'showroom_1')"></label>
+      <img src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=500&h=500&fit=crop" data-img-key="showroom_1" alt="Showroom 1" loading="lazy" onerror="this.style.display='none'">
+    </div>
+    <div class="photo-card photo-upload-wrap">
+      <label class="photo-upload-btn">📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadShowroomPhoto(this, 'showroom_2')"></label>
+      <img src="https://images.unsplash.com/photo-1483985988355-763728e1935b?w=500&h=500&fit=crop" data-img-key="showroom_2" alt="Showroom 2" loading="lazy" onerror="this.style.display='none'">
+    </div>
+  </div>
+</section>
+
+<!-- CART & CHECKOUT -->
+<section class="cart-section" id="cartSection">
+  <h2>Your Cart</h2>
+  <div id="cartItems"></div>
+  <div class="totals">
+    <div>Subtotal: <span id="subtotal">₱0.00</span></div>
+    <div>Shipping Fee: <span id="shippingLabel">₱50.00 - ₱120.00</span></div>
+    <div style="margin-top:0.5rem;"><strong>Total: <span id="totalAmount">₱0.00</span></strong></div>
+  </div>
+
+  <form class="checkout-form" onsubmit="event.preventDefault(); placeOrder();">
+    <h3>Shipping & Payment Details</h3>
+    <input type="text" class="form-input" id="fullName" placeholder="Full Name" required>
+    <input type="tel" class="form-input" id="contactNum" placeholder="Contact Number (e.g. 09123456789)" required pattern="[0-9]{10,11}">
+    <textarea class="form-input" id="deliveryAddress" rows="3" placeholder="Complete Delivery Address" required oninput="calculateShipping()"></textarea>
+    <select class="form-input" id="locationType" onchange="calculateShipping()" required>
+      <option value="">Select General Location</option>
+      <option value="local">Within Calabarzon / Nearby - ₱50</option>
+      <option value="province">Other Provinces - ₱90</option>
+      <option value="far">Far Provinces / Islands - ₱115</option>
+    </select>
+
+    <div class="gcash-box">
+      <div>Send Payment via <strong style="color:var(--success);">GCash</strong> to:</div>
+      <strong id="gcashDisplay">0917-XXX-XXXX</strong>
+      <div style="font-size:0.85rem;margin-top:0.3rem;color:var(--muted);">Account Name: SCRM.HARDWEAR</div>
+    </div>
+
+    <input type="text" class="form-input" id="gcashRef" placeholder="GCash Reference Number *" required>
+    <button type="submit" class="submit-order-btn">Place Order</button>
+  </form>
+</section>
+
+<!-- ADMIN PANEL -->
+<div class="admin-panel" id="adminPanel">
+  <button class="close-panel-btn" onclick="closeAdminPanel()">✕</button>
+  <h3>Admin Dashboard</h3>
+
+  <div id="panelLoggedOut">
+    <p style="color:var(--accent);margin-bottom:1rem;font-size:0.9rem;">Please login to access admin tools</p>
+    <input type="password" class="admin-input" id="panelPassInput" placeholder="Admin Password" onkeydown="if(event.key==='Enter')panelLogin()">
+    <button class="admin-btn" onclick="panelLogin()">Login</button>
+  </div>
+
+  <div id="panelLoggedIn" class="hidden">
+    <div style="color:var(--success);margin-bottom:1rem;font-size:0.9rem;" id="cloudStatusText">● Cloud Sync: Connecting...</div>
+    <button class="admin-btn" onclick="toggleEditing()" id="editToggleBtn">Turn Editing ON</button>
+    <input type="password" class="admin-input" id="newPassword" placeholder="New Admin Password" style="margin-top:0.5rem;">
+    <button class="admin-btn" onclick="changeAdminPassword()">Change Password</button>
+    <input type="text" class="admin-input" id="newGcash" placeholder="Update GCash Number" style="margin-top:0.5rem;">
+    <button class="admin-btn" onclick="updateGcashNumber()">Update GCash Number</button>
+
+    <hr style="border-color:var(--border);margin:1.2rem 0;">
+    <h4 style="text-transform:uppercase;font-size:0.9rem;margin-bottom:0.8rem;">Orders (<span id="orderCount">0</span>)</h4>
+    <div id="ordersContainer"></div>
+
+    <button class="admin-btn btn-secondary" onclick="closeAdminPanel()" style="margin-top:1.2rem;">Close Panel (Keep Editing)</button>
+    <button class="admin-btn btn-danger" onclick="doLogout()" style="margin-top:0.5rem;">Logout Admin</button>
+  </div>
+</div>
+
+<!-- LOGIN MODAL -->
+<div class="modal-overlay" id="loginModal">
+  <div class="modal-content">
+    <h3>Admin Login</h3>
+    <div class="modal-error" id="loginError"></div>
+    <input type="password" class="form-input" id="passwordInput" placeholder="Enter Admin Password" onkeydown="if(event.key==='Enter')attemptLogin()">
+    <button class="admin-btn" onclick="attemptLogin()">Login</button>
+    <button class="admin-btn btn-secondary" style="margin-top:0.5rem;" onclick="closeLoginModal()">Cancel</button>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer class="site-footer">
+  <p>Follow us: <a href="https://www.instagram.com/scrm.hardwear" target="_blank" rel="noopener">@scrm.hardwear</a></p>
+  <p style="margin-top:0.5rem;">© 2026 SCRM.HARDWEAR - All Rights Reserved</p>
+</footer>
+
+<script>
+(function(){
+  var FIREBASE_CONFIG = {
+   apiKey: "AIzaSyDa_RFpG9eFV9YpRuvDDE3mxS-joftE6to",
+  authDomain: "scrm-hardwear.firebaseapp.com",
+  databaseURL: "https://scrm-hardwear-default-rtdb.firebaseio.com",
+  projectId: "scrm-hardwear",
+  storageBucket: "scrm-hardwear.firebasestorage.app",
+  messagingSenderId: "751127373506",
+  appId: "1:751127373506:web:01f961ccaa37ce6581fd5b"
+  };
+
+  var isAuthenticated = false;
+  var editingActive = false;
+  var cart = [];
+  var shippingFee = 50;
+  var firebaseConnected = false;
+  var database = null;
+  var isApplyingRemoteUpdate = false;
+
+  var adminPassword = localStorage.getItem('scrm_admin_pass') || 'admin123';
+  var gcashNumber = localStorage.getItem('scrm_gcash') || '0917-XXX-XXXX';
+  var orders = JSON.parse(localStorage.getItem('scrm_orders') || '[]');
+  var TEXTS_KEY = 'scrm_text_storage';
+  var IMAGES_KEY = 'scrm_images';
+  var ORDERS_KEY = 'scrm_orders';
+  var SETTINGS_KEY = 'scrm_settings';
+  var VIDEO_KEY = 'scrm_video';
+
+  document.getElementById('gcashDisplay').textContent = gcashNumber;
+
+  function parsePrice(text){
+    if(!text) return 0;
+    var cleaned = text.replace(/[₱P$,\s]/gi, '');
+    var num = parseFloat(cleaned);
+    return isNaN(num) ? 0 : Math.round(num);
+  }
+  function formatPrice(num){
+    return '₱' + Math.round(num).toLocaleString() + '.00';
+  }
+
+  function showSyncStatus(mode, text){
+    var el = document.getElementById('syncStatus');
+    el.className = 'sync-status show ' + mode;
+    el.textContent = text;
+    clearTimeout(el._hideTimer);
+    if(mode === 'synced'){
+      el._hideTimer = setTimeout(function(){ el.classList.remove('show'); }, 2000);
+    }
+  }
+  function updateCloudIndicator(connected){
+    var dot = document.getElementById('cloudIndicator');
+    var statusText = document.getElementById('cloudStatusText');
+    if(connected){
+      dot.className = 'cloud-indicator connected';
+      if(statusText) statusText.innerHTML = '<span style="color:var(--success);">●</span> Cloud Sync: Connected';
+    } else {
+      dot.className = 'cloud-indicator disconnected';
+      if(statusText) statusText.innerHTML = '<span style="color:var(--error);">●</span> Cloud Sync: Offline (local only)';
+    }
+  }
+
+  function resizeImage(file, maxWidth, maxHeight, quality, callback){
+    var reader = new FileReader();
+    reader.onload = function(e){
+      var img = new Image();
+      img.onload = function(){
+        var canvas = document.createElement('canvas');
+        var w = img.width, h = img.height;
+        if(w > maxWidth){ h = Math.round(h * maxWidth / w); w = maxWidth; }
+        if(h > maxHeight){ w = Math.round(w * maxHeight / h); h = maxHeight; }
+        canvas.width = w; canvas.height = h;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        callback(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function saveImage(key, dataUrl){
+    var stored = JSON.parse(localStorage.getItem(IMAGES_KEY) || '{}');
+    stored[key] = dataUrl;
+    localStorage.setItem(IMAGES_KEY, JSON.stringify(stored));
+    applyImageToDOM(key, dataUrl);
+    if(firebaseConnected && database){
+      showSyncStatus('syncing', '● Uploading photo...');
+      database.ref(IMAGES_KEY + '/' + key).set(dataUrl)
+        .then(function(){ showSyncStatus('synced', '● Photo synced to all devices'); })
+        .catch(function(err){ showSyncStatus('offline', '● Photo saved locally only'); });
+    } else {
+      showSyncStatus('offline', '● Photo saved locally');
+    }
+  }
+
+  function applyImageToDOM(key, dataUrl){
+    isApplyingRemoteUpdate = true;
+    document.querySelectorAll('img[data-img-key="' + key + '"]').forEach(function(img){
+      if(img.src !== dataUrl){ img.src = dataUrl; img.style.display = 'block'; }
+    });
+    isApplyingRemoteUpdate = false;
+  }
+
+  window.uploadProductPhoto = function(input, imgKey){
+    if(!isAuthenticated){ alert('Please login as Admin first!'); input.value = ''; return; }
+    var file = input.files[0];
+    if(!file) return;
+    if(!file.type.match('image.*')){ alert('Please select an image file!'); input.value = ''; return; }
+    var btn = input.closest('.photo-upload-btn');
+    btn.classList.add('uploading');
+    btn.textContent = '⏳ Uploading...';
+    resizeImage(file, 800, 1200, 0.85, function(dataUrl){
+      saveImage(imgKey, dataUrl);
+      btn.classList.remove('uploading');
+      btn.innerHTML = '📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadProductPhoto(this, \'' + imgKey + '\')">';
+      input.value = '';
+    });
+  };
+
+  window.uploadShowroomPhoto = function(input, imgKey){
+    if(!isAuthenticated){ alert('Please login as Admin first!'); input.value = ''; return; }
+    var file = input.files[0];
+    if(!file) return;
+    if(!file.type.match('image.*')){ alert('Please select an image file!'); input.value = ''; return; }
+    var btn = input.closest('.photo-upload-btn');
+    btn.classList.add('uploading');
+    btn.textContent = '⏳ Uploading...';
+    resizeImage(file, 1000, 1000, 0.85, function(dataUrl){
+      saveImage(imgKey, dataUrl);
+      btn.classList.remove('uploading');
+      btn.innerHTML = '📷 Upload<input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onchange="uploadShowroomPhoto(this, \'' + imgKey + '\')">';
+      input.value = '';
+    });
+  };
+
+  // ============================================
+  // ===== NEW: VIDEO FILE UPLOAD FEATURE =====
+  // ============================================
+  window.uploadShowroomVideo = function(input){
+    if(!isAuthenticated){
+      alert('Please login as Admin first!');
+      input.value = '';
+      return;
+    }
+
+    var file = input.files[0];
+    if(!file) return;
+
+    // Check file type
+    if(!file.type.match('video.*')){
+      alert('Please select a VIDEO file (.mp4, .webm, .mov, etc.)');
+      input.value = '';
+      return;
+    }
+
+    // File size warning — limit to 100MB for practicality
+    var maxSizeMB = 100;
+    var fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
+    if(file.size > maxSizeMB * 1024 * 1024){
+      alert('⚠️ Video file is too large (' + fileSizeMB + ' MB).\n\nMaximum recommended size is ' + maxSizeMB + 'MB.\n\nTip: Compress your video first or use a shorter clip.');
+      input.value = '';
+      return;
+    }
+
+    if(!confirm('Upload video?\n\nFile: ' + file.name + '\nSize: ' + fileSizeMB + ' MB\n\n⚠️ Large videos may take time to upload and sync.')){
+      input.value = '';
+      return;
+    }
+
+    var btn = input.closest('.video-upload-btn');
+    btn.classList.add('uploading');
+    btn.textContent = '⏳ Converting...';
+    showSyncStatus('syncing', '● Converting video...');
+
+    var reader = new FileReader();
+
+    reader.onprogress = function(e){
+      if(e.lengthComputable){
+        var percent = Math.round((e.loaded / e.total) * 100);
+        btn.textContent = '⏳ Reading: ' + percent + '%';
+      }
+    };
+
+    reader.onload = function(e){
+      btn.textContent = '⏳ Saving...';
+      showSyncStatus('syncing', '● Saving video...');
+
+      var videoDataUrl = e.target.result;
+
+      // Save to localStorage
+      try{
+        localStorage.setItem(VIDEO_KEY, videoDataUrl);
+      } catch(err){
+        alert('⚠️ Video is too large to save locally.\n\nPlease use a smaller video file (under 5MB recommended for local storage).\n\nTip: You can also use "Video URL" option to link to an external video.');
+        btn.classList.remove('uploading');
+        btn.innerHTML = '🎬 Upload Video<input type="file" accept="video/mp4,video/webm,video/quicktime,video/x-matroska" onchange="uploadShowroomVideo(this)">';
+        input.value = '';
+        return;
+      }
+
+      // Apply to video player
+      applyVideoToDOM(videoDataUrl);
+
+      // Save to Firebase cloud
+      if(firebaseConnected && database){
+        btn.textContent = '⏳ Syncing...';
+        showSyncStatus('syncing', '● Syncing video to cloud...');
+        database.ref(VIDEO_KEY).set(videoDataUrl)
+          .then(function(){
+            btn.classList.remove('uploading');
+            btn.innerHTML = '🎬 Upload Video<input type="file" accept="video/mp4,video/webm,video/quicktime,video/x-matroska" onchange="uploadShowroomVideo(this)">';
+            showSyncStatus('synced', '● Video synced!');
+            input.value = '';
+          })
+          .catch(function(err){
+            console.error('Video cloud save error:', err);
+            btn.classList.remove('uploading');
+            btn.innerHTML = '🎬 Upload Video<input type="file" accept="video/mp4,video/webm,video/quicktime,video/x-matroska" onchange="uploadShowroomVideo(this)">';
+            showSyncStatus('offline', '● Video saved locally only');
+            alert('⚠️ Video saved locally but could not sync to cloud.\n\nThis is normal for large videos. The video will still play on this device.');
+            input.value = '';
+          });
+      } else {
+        btn.classList.remove('uploading');
+        btn.innerHTML = '🎬 Upload Video<input type="file" accept="video/mp4,video/webm,video/quicktime,video/x-matroska" onchange="uploadShowroomVideo(this)">';
+        showSyncStatus('offline', '● Video saved locally');
+        input.value = '';
+      }
+    };
+
+    reader.onerror = function(){
+      alert('Error reading video file. Please try again.');
+      btn.classList.remove('uploading');
+      btn.innerHTML = '🎬 Upload Video<input type="file" accept="video/mp4,video/webm,video/quicktime,video/x-matroska" onchange="uploadShowroomVideo(this)">';
+      input.value = '';
+    };
+
+    reader.readAsDataURL(file);
+  };
+
+  function applyVideoToDOM(videoSrc){
+    isApplyingRemoteUpdate = true;
+    var vid = document.getElementById('showroomVideo');
+    var placeholder = document.getElementById('videoPlaceholder');
+    vid.src = videoSrc;
+    vid.load();
+    if(placeholder) placeholder.classList.add('hidden');
+    isApplyingRemoteUpdate = false;
+  }
+
+  function loadVideoFromLocal(){
+    var saved = localStorage.getItem(VIDEO_KEY);
+    if(saved){
+      applyVideoToDOM(saved);
+    }
+  }
+
+  function loadImagesFromLocal(){
+    var stored = localStorage.getItem(IMAGES_KEY);
+    if(!stored) return;
+    var images = JSON.parse(stored);
+    Object.keys(images).forEach(function(key){ applyImageToDOM(key, images[key]); });
+  }
+
+  function initFirebase(){
+    if(FIREBASE_CONFIG.apiKey === "YOUR_API_KEY"){
+      showSyncStatus('offline', '● Local Mode');
+      updateCloudIndicator(false);
+      loadFromLocalStorage();
+      loadImagesFromLocal();
+      loadVideoFromLocal();
+      return;
+    }
+    try{
+      firebase.initializeApp(FIREBASE_CONFIG);
+      database = firebase.database();
+      var connectedRef = database.ref('.info/connected');
+      connectedRef.on('value', function(snap){
+        firebaseConnected = snap.val() === true;
+        updateCloudIndicator(firebaseConnected);
+        if(firebaseConnected){
+          showSyncStatus('synced', '● Cloud Connected');
+          syncAllFromCloud();
+        } else {
+          showSyncStatus('offline', '● Offline — local data');
+          loadFromLocalStorage();
+          loadImagesFromLocal();
+          loadVideoFromLocal();
+        }
+      });
+    } catch(e){
+      showSyncStatus('offline', '● Local only');
+      updateCloudIndicator(false);
+      loadFromLocalStorage();
+      loadImagesFromLocal();
+      loadVideoFromLocal();
+    }
+  }
+
+  function loadFromLocalStorage(){
+    var stored = localStorage.getItem(TEXTS_KEY);
+    if(stored) applyTextsToDOM(JSON.parse(stored));
+  }
+
+  function applyTextsToDOM(texts){
+    if(!texts) return;
+    isApplyingRemoteUpdate = true;
+    document.querySelectorAll('[data-editable]').forEach(function(el){
+      var k = el.dataset.key;
+      if(texts[k] !== undefined && texts[k] !== null && el.innerHTML !== texts[k]){
+        el.innerHTML = texts[k];
+      }
+    });
+    isApplyingRemoteUpdate = false;
+  }
+
+  function syncAllFromCloud(){
+    if(!database) return;
+    database.ref(TEXTS_KEY).on('value', function(snap){
+      if(snap.val()){ applyTextsToDOM(snap.val()); localStorage.setItem(TEXTS_KEY, JSON.stringify(snap.val())); }
+    });
+    database.ref(IMAGES_KEY).on('value', function(snap){
+      if(snap.val()){
+        Object.keys(snap.val()).forEach(function(key){ applyImageToDOM(key, snap.val()[key]); });
+        localStorage.setItem(IMAGES_KEY, JSON.stringify(snap.val()));
+      }
+    });
+    // Sync video from cloud
+    database.ref(VIDEO_KEY).on('value', function(snap){
+      if(snap.val()){
+        applyVideoToDOM(snap.val());
+        try{ localStorage.setItem(VIDEO_KEY, snap.val()); } catch(e){}
+      }
+    });
+    database.ref(SETTINGS_KEY).on('value', function(snap){
+      if(snap.val()){
+        if(snap.val().gcash){ gcashNumber = snap.val().gcash; document.getElementById('gcashDisplay').textContent = gcashNumber; localStorage.setItem('scrm_gcash', gcashNumber); }
+        if(snap.val().adminPass){ adminPassword = snap.val().adminPass; localStorage.setItem('scrm_admin_pass', adminPassword); }
+      }
+    });
+    database.ref(ORDERS_KEY).on('value', function(snap){
+      if(snap.val()){
+        orders = Array.isArray(snap.val()) ? snap.val() : Object.values(snap.val());
+        localStorage.setItem('scrm_orders', JSON.stringify(orders));
+        renderOrders();
+      }
+    });
+  }
+
+  function saveText(el){
+    if(isApplyingRemoteUpdate) return;
+    var key = el.dataset.key;
+    var value = el.innerHTML;
+    el.classList.add('saving');
+    showSyncStatus('syncing', '● Syncing...');
+    var stored = JSON.parse(localStorage.getItem(TEXTS_KEY) || '{}');
+    stored[key] = value;
+    localStorage.setItem(TEXTS_KEY, JSON.stringify(stored));
+    if(firebaseConnected && database){
+      database.ref(TEXTS_KEY + '/' + key).set(value)
+        .then(function(){
+          el.classList.remove('saving');
+          el.classList.add('saved-flash');
+          setTimeout(function(){ el.classList.remove('saved-flash'); }, 600);
+          showSyncStatus('synced', '● Synced to all devices');
+        })
+        .catch(function(){ el.classList.remove('saving'); showSyncStatus('offline', '● Saved locally'); });
+    } else {
+      el.classList.remove('saving');
+      showSyncStatus('offline', '● Saved locally');
+    }
+  }
+
+  function saveSettingsToCloud(settings){
+    localStorage.setItem('scrm_gcash', settings.gcash || gcashNumber);
+    localStorage.setItem('scrm_admin_pass', settings.adminPass || adminPassword);
+    if(firebaseConnected && database){
+      database.ref(SETTINGS_KEY).update(settings)
+        .then(function(){ showSyncStatus('synced', '● Settings synced'); })
+        .catch(function(){ showSyncStatus('offline', '● Saved locally'); });
+    }
+  }
+
+  function saveOrdersToCloud(){
+    localStorage.setItem('scrm_orders', JSON.stringify(orders));
+    if(firebaseConnected && database){
+      database.ref(ORDERS_KEY).set(orders)
+        .then(function(){ showSyncStatus('synced', '● Orders synced'); })
+        .catch(function(){});
+    }
+    renderOrders();
+  }
+
+  window.filterProducts = function(category, btn){
+    document.querySelectorAll('.tab-btn').forEach(function(t){ t.classList.remove('active'); });
+    btn.classList.add('active');
+    document.querySelectorAll('.product-card').forEach(function(card){
+      card.style.display = (category === 'all' || card.dataset.category === category) ? 'flex' : 'none';
+    });
+  };
+
+  window.addToCart = function(buttonEl){
+    var card = buttonEl.closest('.product-card');
+    if(!card) return;
+    var nameEl = card.querySelector('.product-name');
+    var priceEl = card.querySelector('.product-price');
+    if(!nameEl || !priceEl) return;
+    var name = nameEl.textContent.trim();
+    var price = parsePrice(priceEl.textContent.trim());
+    if(price <= 0){ alert('Invalid price!'); return; }
+    var existing = cart.find(function(i){ return i.name === name; });
+    if(existing){ existing.qty++; existing.price = price; }
+    else { cart.push({name: name, price: price, qty: 1}); }
+    updateCartDisplay();
+    document.getElementById('cartSection').scrollIntoView({behavior:'smooth', block:'start'});
+  };
+
+  function updateCartDisplay(){
+    var container = document.getElementById('cartItems');
+    container.innerHTML = '';
+    var subtotal = 0;
+    if(cart.length === 0){
+      container.innerHTML = '<p style="color:var(--muted);padding:1rem 0;">Your cart is empty. Browse products above and click "Add to Cart".</p>';
+    }
+    cart.forEach(function(item, idx){
+      subtotal += item.price * item.qty;
+      var itemDiv = document.createElement('div');
+      itemDiv.className = 'cart-item';
+      itemDiv.innerHTML =
+        '<div><strong>' + item.name + '</strong> - ' + formatPrice(item.price) + '</div>' +
+        '<div class="qty-controls">' +
+          '<button class="qty-btn" onclick="adjustQty(' + idx + ', -1)">−</button>' +
+          '<span>' + item.qty + '</span>' +
+          '<button class="qty-btn" onclick="adjustQty(' + idx + ', 1)">+</button>' +
+        '</div>';
+      container.appendChild(itemDiv);
+    });
+    document.getElementById('subtotal').textContent = formatPrice(subtotal);
+    recalculateTotal(subtotal);
+  }
+  updateCartDisplay();
+
+  window.adjustQty = function(idx, delta){
+    cart[idx].qty += delta;
+    if(cart[idx].qty <= 0) cart.splice(idx, 1);
+    updateCartDisplay();
+  };
+
+  window.calculateShipping = function(){
+    var loc = document.getElementById('locationType').value;
+    if(loc === 'local') shippingFee = 50;
+    else if(loc === 'province') shippingFee = 90;
+    else if(loc === 'far') shippingFee = 115;
+    else shippingFee = 50;
+    document.getElementById('shippingLabel').textContent = formatPrice(shippingFee);
+    var subtotal = cart.reduce(function(s, i){ return s + i.price * i.qty; }, 0);
+    recalculateTotal(subtotal);
+  };
+
+  function recalculateTotal(subtotal){
+    document.getElementById('totalAmount').textContent = formatPrice(subtotal + shippingFee);
+  }
+
+  window.placeOrder = function(){
+    if(cart.length === 0){ alert('Your cart is empty!'); return; }
+    var fullName = document.getElementById('fullName').value.trim();
+    var contactNum = document.getElementById('contactNum').value.trim();
+    var address = document.getElementById('deliveryAddress').value.trim();
+    var gcashRef = document.getElementById('gcashRef').value.trim();
+    var location = document.getElementById('locationType').value;
+    if(!fullName || !contactNum || !address || !gcashRef || !location){
+      alert('Please fill in ALL required fields.');
+      return;
+    }
+    var subtotal = cart.reduce(function(s, i){ return s + i.price * i.qty; }, 0);
+    var total = subtotal + shippingFee;
+    var newOrder = {
+      id: 'ORD-' + Date.now(),
+      fullName: fullName,
+      contactNum: contactNum,
+      address: address,
+      location: location,
+      items: JSON.parse(JSON.stringify(cart)),
+      shippingFee: shippingFee,
+      total: total,
+      gcashRef: gcashRef,
+      status: 'pending',
+      date: new Date().toLocaleString()
+    };
+    orders.unshift(newOrder);
+    saveOrdersToCloud();
+    alert('ORDER PLACED!\n\nOrder ID: ' + newOrder.id + '\nTotal: ' + formatPrice(total) + '\n\nSend payment to GCash: ' + gcashNumber + '\nAccount: SCRM.HARDWEAR\n\nThank you!');
+    cart = [];
+    updateCartDisplay();
+    document.getElementById('fullName').value = '';
+    document.getElementById('contactNum').value = '';
+    document.getElementById('deliveryAddress').value = '';
+    document.getElementById('gcashRef').value = '';
+    document.getElementById('locationType').value = '';
+    document.getElementById('shippingLabel').textContent = '₱50.00 - ₱120.00';
+    shippingFee = 50;
+  };
+
+  function renderOrders(){
+    var container = document.getElementById('ordersContainer');
+    var activeOrders = orders.filter(function(o){ return o.status !== 'deleted'; });
+    document.getElementById('orderCount').textContent = activeOrders.length;
+    container.innerHTML = '';
+    if(activeOrders.length === 0){
+      container.innerHTML = '<p style="color:var(--muted);font-size:0.85rem;">No orders yet.</p>';
+      return;
+    }
+    activeOrders.forEach(function(order){
+      var itemsList = order.items.map(function(i){ return i.name + ' x' + i.qty; }).join(', ');
+      var statusClass = order.status === 'pending' ? 'status-pending' : 'status-paid';
+      var isPaid = order.status === 'paid';
+      var paidBtn = isPaid
+        ? '<button disabled style="background:#333;color:#888;cursor:not-allowed;">Fully Paid</button>'
+        : '<button class="paid-btn" onclick="markAsPaid(\'' + order.id + '\')">Mark as Paid</button>';
+      var orderDiv = document.createElement('div');
+      orderDiv.className = 'order-card';
+      orderDiv.innerHTML =
+        '<strong>' + order.id + '</strong>' +
+        '<span class="order-status ' + statusClass + '">' + order.status + '</span>' +
+        '<div style="margin-top:0.4rem;font-size:0.85rem;">' +
+          '<div>Name: ' + order.fullName + '</div>' +
+          '<div>Contact: ' + order.contactNum + '</div>' +
+          '<div>Address: ' + order.address + '</div>' +
+          '<div>Items: ' + itemsList + '</div>' +
+          '<div>GCash Ref: ' + order.gcashRef + '</div>' +
+          '<div><strong>Total: ' + formatPrice(order.total) + '</strong></div>' +
+          '<div style="color:var(--muted);">' + order.date + '</div>' +
+        '</div>' +
+        '<div class="order-actions">' + paidBtn +
+          '<button class="delete-btn" onclick="deleteOrderById(\'' + order.id + '\')">Delete</button>' +
+        '</div>';
+      container.appendChild(orderDiv);
+    });
+  }
+  renderOrders();
+
+  function findOrderIndexById(orderId){
+    for(var i = 0; i < orders.length; i++){ if(orders[i].id === orderId) return i; }
+    return -1;
+  }
+
+  window.markAsPaid = function(orderId){
+    if(!isAuthenticated){ alert('Admin login required!'); return; }
+    var idx = findOrderIndexById(orderId);
+    if(idx === -1){ alert('Order not found!'); return; }
+    orders[idx].status = 'paid';
+    saveOrdersToCloud();
+    alert('Order ' + orderId + ' marked as paid!');
+  };
+
+  window.deleteOrderById = function(orderId){
+    if(!isAuthenticated){ alert('Admin login required!'); return; }
+    var idx = findOrderIndexById(orderId);
+    if(idx === -1){ alert('Order not found!'); return; }
+    if(!confirm('Delete order ' + orderId + '?')) return;
+    orders.splice(idx, 1);
+    saveOrdersToCloud();
+    alert('Order deleted.');
+  };
+
+  window.openLoginModal = function(){
+    document.getElementById('loginModal').classList.add('show');
+    document.getElementById('passwordInput').value = '';
+    document.getElementById('loginError').textContent = '';
+    setTimeout(function(){ document.getElementById('passwordInput').focus(); }, 100);
+    document.getElementById('loginModal').scrollIntoView({behavior:'smooth'});
+  };
+
+  window.closeLoginModal = function(){
+    document.getElementById('loginModal').classList.remove('show');
+    document.getElementById('passwordInput').value = '';
+    document.getElementById('loginError').textContent = '';
+  };
+
+  window.attemptLogin = function(){
+    var entered = document.getElementById('passwordInput').value.trim();
+    if(entered === adminPassword){
+      isAuthenticated = true;
+      closeLoginModal();
+      openAdminPanel();
+      document.getElementById('navArea').classList.add('logged-in');
+      renderOrders();
+    } else {
+      document.getElementById('loginError').textContent = 'Incorrect password.';
+      document.getElementById('passwordInput').value = '';
+      document.getElementById('passwordInput').focus();
+    }
+  };
+
+  window.panelLogin = function(){
+    var entered = document.getElementById('panelPassInput').value.trim();
+    if(entered === adminPassword){
+      isAuthenticated = true;
+      document.getElementById('panelLoggedOut').classList.add('hidden');
+      document.getElementById('panelLoggedIn').classList.remove('hidden');
+      document.getElementById('panelPassInput').value = '';
+      document.getElementById('navArea').classList.add('logged-in');
+      renderOrders();
+    } else {
+      alert('Incorrect password!');
+      document.getElementById('panelPassInput').value = '';
+    }
+  };
+
+  function openAdminPanel(){
+    document.getElementById('adminPanel').classList.add('open');
+    if(isAuthenticated){
+      document.getElementById('panelLoggedOut').classList.add('hidden');
+      document.getElementById('panelLoggedIn').classList.remove('hidden');
+      document.getElementById('navArea').classList.add('logged-in');
+      renderOrders();
+    }
+  }
+
+  window.closeAdminPanel = function(){
+    document.getElementById('adminPanel').classList.remove('open');
+  };
+
+  window.toggleEditing = function(){
+    editingActive = !editingActive;
+    document.body.classList.toggle('admin-mode', editingActive);
+    if(editingActive){
+      enableEditing();
+      document.getElementById('editToggleBtn').textContent = 'Turn Editing OFF';
+    } else {
+      disableEditing();
+      document.getElementById('editToggleBtn').textContent = 'Turn Editing ON';
+    }
+  };
+
+  function enableEditing(){
+    document.querySelectorAll('[data-editable]').forEach(function(el){
+      el.contentEditable = 'true';
+      el.spellcheck = false;
+      el.onblur = function(){ saveText(this); };
+    });
+  }
+
+  function disableEditing(){
+    document.querySelectorAll('[data-editable]').forEach(function(el){
+      el.contentEditable = 'false';
+      el.onblur = null;
+    });
+  }
+
+  window.changeAdminPassword = function(){
+    if(!isAuthenticated){ alert('Login first!'); return; }
+    var newPass = document.getElementById('newPassword').value.trim();
+    if(!newPass){ alert('Enter a new password!'); return; }
+    adminPassword = newPass;
+    localStorage.setItem('scrm_admin_pass', newPass);
+    saveSettingsToCloud({adminPass: newPass});
+    alert('Password updated!');
+    document.getElementById('newPassword').value = '';
+  };
+
+  window.updateGcashNumber = function(){
+    if(!isAuthenticated){ alert('Login first!'); return; }
+    var newGcash = document.getElementById('newGcash').value.trim();
+    if(!newGcash){ alert('Enter GCash number!'); return; }
+    gcashNumber = newGcash;
+    localStorage.setItem('scrm_gcash', newGcash);
+    document.getElementById('gcashDisplay').textContent = newGcash;
+    saveSettingsToCloud({gcash: newGcash});
+    alert('GCash number updated!');
+    document.getElementById('newGcash').value = '';
+  };
+
+  window.doLogout = function(){
+    if(!isAuthenticated){ alert('Not logged in.'); return; }
+    if(!confirm('Logout from Admin?')) return;
+    isAuthenticated = false;
+    editingActive = false;
+    document.body.classList.remove('admin-mode');
+    disableEditing();
+    document.getElementById('adminPanel').classList.remove('open');
+    document.getElementById('panelLoggedIn').classList.add('hidden');
+    document.getElementById('panelLoggedOut').classList.remove('hidden');
+    document.getElementById('editToggleBtn').textContent = 'Turn Editing ON';
+    document.getElementById('navArea').classList.remove('logged-in');
+    document.getElementById('panelPassInput').value = '';
+    document.getElementById('passwordInput').value = '';
+    alert('Logged out.');
+  };
+
+  window.changeMedia = function(type){
+    if(!isAuthenticated){ alert('Login as admin first!'); return; }
+    if(type === 'video'){
+      var url = prompt('Enter video URL (mp4):\n\nTip: You can also click "🎬 Upload Video" button to upload a video file directly.');
+      if(url){
+        var vid = document.getElementById('showroomVideo');
+        vid.src = url;
+        localStorage.setItem('scrm_video_url', url);
+        localStorage.removeItem(VIDEO_KEY); // clear uploaded video if using URL
+        document.getElementById('videoPlaceholder').classList.add('hidden');
+        if(firebaseConnected && database){
+          database.ref(VIDEO_KEY).remove();
+        }
+      }
+    }
+  };
+
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape') closeLoginModal();
+  });
+
+  // Load saved video (check if URL or uploaded file)
+  var savedVideoUrl = localStorage.getItem('scrm_video_url');
+  var savedVideoFile = localStorage.getItem(VIDEO_KEY);
+  if(savedVideoFile){
+    applyVideoToDOM(savedVideoFile);
+  } else if(savedVideoUrl){
+    document.getElementById('showroomVideo').src = savedVideoUrl;
+    document.getElementById('videoPlaceholder').classList.add('hidden');
+  }
+
+  loadImagesFromLocal();
+  initFirebase();
+
+})();
+</script>
+
+</div>
+</html>
